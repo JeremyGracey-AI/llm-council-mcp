@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import Any
+from typing import Any, AsyncIterator
 
 from . import config
 from .openrouter import query_model, query_models_parallel
@@ -177,34 +177,68 @@ async def stage3_synthesize(
 # --------------------------------------------------------------------------- #
 # Full pipeline
 # --------------------------------------------------------------------------- #
+async def run_council_stream(
+    user_query: str,
+    models: list[str] | None = None,
+    chairman_model: str | None = None,
+) -> AsyncIterator[dict[str, Any]]:
+    """Async generator yielding progress events as each stage completes.
+
+    Event shape: {"event": <name>, ...payload}. Names:
+      start, stage1_complete, stage2_complete, stage3_complete, done, error.
+    The final "done" event carries the full result dict under "result".
+    """
+    models = models or config.COUNCIL_MODELS
+    chairman_model = chairman_model or config.CHAIRMAN_MODEL
+
+    yield {"event": "start", "query": user_query, "council_models": models,
+           "chairman_model": chairman_model}
+
+    stage1, failures = await stage1_collect_responses(user_query, models)
+    if not stage1:
+        yield {"event": "error", "error": "All council models failed to respond.",
+               "failures": failures}
+        return
+    yield {"event": "stage1_complete", "responses": stage1, "failures": failures}
+
+    stage2, label_to_model = await stage2_collect_rankings(user_query, stage1, models)
+    leaderboard = aggregate_rankings(stage2, label_to_model)
+    yield {"event": "stage2_complete", "rankings": stage2, "leaderboard": leaderboard}
+
+    stage3 = await stage3_synthesize(user_query, stage1, stage2, chairman_model)
+    yield {"event": "stage3_complete", "final_answer": stage3}
+
+    yield {
+        "event": "done",
+        "result": {
+            "query": user_query,
+            "council_models": models,
+            "chairman_model": chairman_model,
+            "stage1_responses": stage1,
+            "stage2_rankings": stage2,
+            "leaderboard": leaderboard,
+            "final_answer": stage3,
+            "failures": failures,
+            "label_to_model": label_to_model,
+        },
+    }
+
+
 async def run_full_council(
     user_query: str,
     models: list[str] | None = None,
     chairman_model: str | None = None,
 ) -> dict[str, Any]:
-    models = models or config.COUNCIL_MODELS
-    chairman_model = chairman_model or config.CHAIRMAN_MODEL
-
-    stage1, failures = await stage1_collect_responses(user_query, models)
-    if not stage1:
-        return {
-            "query": user_query,
-            "error": "All council models failed to respond.",
-            "failures": failures,
-        }
-
-    stage2, label_to_model = await stage2_collect_rankings(user_query, stage1, models)
-    leaderboard = aggregate_rankings(stage2, label_to_model)
-    stage3 = await stage3_synthesize(user_query, stage1, stage2, chairman_model)
-
-    return {
+    """Run the full council and return the final result dict (non-streaming)."""
+    result: dict[str, Any] = {
         "query": user_query,
-        "council_models": models,
-        "chairman_model": chairman_model,
-        "stage1_responses": stage1,
-        "stage2_rankings": stage2,
-        "leaderboard": leaderboard,
-        "final_answer": stage3,
-        "failures": failures,
-        "label_to_model": label_to_model,
+        "error": "All council models failed to respond.",
+        "failures": [],
     }
+    async for ev in run_council_stream(user_query, models, chairman_model):
+        if ev["event"] == "done":
+            return ev["result"]
+        if ev["event"] == "error":
+            return {"query": user_query, "error": ev["error"],
+                    "failures": ev.get("failures", [])}
+    return result

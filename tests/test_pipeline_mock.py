@@ -51,7 +51,48 @@ def test_ranking_parser():
     print("PASS: ranking parser")
 
 
+def test_streaming_events():
+    models = ["openai/gpt-5.1", "anthropic/claude-sonnet-4.5"]
+
+    async def collect():
+        events = []
+        with patch.object(council, "query_model", fake_query_model), patch.object(
+            council, "query_models_parallel", fake_parallel
+        ):
+            async for ev in council.run_council_stream("Q?", models=models):
+                events.append(ev["event"])
+        return events
+
+    events = asyncio.run(collect())
+    assert events == [
+        "start",
+        "stage1_complete",
+        "stage2_complete",
+        "stage3_complete",
+        "done",
+    ], events
+    print("PASS: streaming events in order")
+
+
+def test_html_report():
+    from llm_council_mcp.report import render_html
+
+    models = ["openai/gpt-5.1", "anthropic/claude-sonnet-4.5"]
+    with patch.object(council, "query_model", fake_query_model), patch.object(
+        council, "query_models_parallel", fake_parallel
+    ):
+        result = asyncio.run(council.run_full_council("Q?", models=models))
+    html = render_html(result)
+    assert html.startswith("<!doctype html>")
+    assert "LLM Council Verdict" in html
+    assert "SYNTHESIZED FINAL ANSWER." in html
+    assert "Peer Leaderboard" in html
+    print("PASS: HTML report renders")
+
+
 if __name__ == "__main__":
     test_ranking_parser()
     test_full_council()
+    test_streaming_events()
+    test_html_report()
     print("\nALL TESTS PASSED")

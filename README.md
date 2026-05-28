@@ -23,9 +23,17 @@ You also get a **peer leaderboard** (average rank per model) computed from the p
 
 | Tool | What it does |
 |------|--------------|
-| `council_deliberate` | Full 3-stage council on a hard question. Returns a markdown report (or `format="json"`). Optional `models` / `chairman_model` overrides. |
+| `council_deliberate` | Full 3-stage council on a hard question. Returns a markdown report (or `format="json"`). Optional `models` / `chairman_model` overrides, and `html_path` to also write a standalone HTML report (`"auto"` to auto-name it). |
+| `council_deliberate_streaming` | Same as above but emits live MCP progress + log events as each stage completes (dispatch → peer review → chairman), so the client shows a status bar. Also supports `html_path`. |
 | `council_jury` | Fast go/no-go: each model gives `VERDICT: YES/NO`, returns a vote tally + chairman synthesis. |
 | `council_config` | Shows the active roster, chairman, and whether the API key is set. |
+
+### HTML reports
+
+Pass `html_path` to `council_deliberate` / `council_deliberate_streaming` to also
+write a self-contained, shareable HTML report (dark-themed, with the final verdict,
+peer leaderboard, and collapsible per-model reviews). Use `"auto"` to drop a
+timestamped `council-report-<ts>.html` in the working directory.
 
 ## Prerequisites
 
@@ -34,13 +42,21 @@ You also get a **peer leaderboard** (average rank per model) computed from the p
 
 ## Install
 
+From PyPI (once published):
+
+```bash
+pip install llm-council-mcp
+```
+
+Or from source:
+
 ```bash
 cd llm-council-mcp
 python3 -m venv .venv
 .venv/bin/pip install -e .
 ```
 
-This installs the `llm-council-mcp` console script (entry point `llm_council_mcp.server:main`).
+Either way you get the `llm-council-mcp` console script (entry point `llm_council_mcp.server:main`).
 
 ## Register with Claude Code
 
@@ -149,8 +165,20 @@ OPENROUTER_API_KEY=sk-or-v1-... .venv/bin/llm-council-mcp
 ## Test offline (no API cost)
 
 ```bash
-PYTHONPATH=. .venv/bin/python tests/test_pipeline_mock.py   # mocks OpenRouter
-PYTHONPATH=. .venv/bin/python tests/test_mcp_boot.py        # boots server, lists tools
+PYTHONPATH=. .venv/bin/python tests/test_pipeline_mock.py   # pipeline, streaming & HTML, OpenRouter mocked
+PYTHONPATH=. .venv/bin/python tests/test_mcp_boot.py        # boots server, lists all 4 tools
+```
+
+## Releasing / publishing
+
+Pushing a `v*` tag triggers `.github/workflows/publish.yml`, which builds the
+sdist + wheel and publishes to PyPI via Trusted Publishing (OIDC — no stored
+tokens). One-time PyPI setup: add a trusted publisher for repo
+`JeremyGracey-AI/llm-council-mcp`, workflow `publish.yml`, environment `pypi`.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 ## Contributing

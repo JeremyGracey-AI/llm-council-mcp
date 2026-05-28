@@ -19,7 +19,12 @@ async def main():
             tools = await session.list_tools()
             names = sorted(t.name for t in tools.tools)
             print("Registered tools:", names)
-            assert names == ["council_config", "council_deliberate", "council_jury"], names
+            assert names == [
+                "council_config",
+                "council_deliberate",
+                "council_deliberate_streaming",
+                "council_jury",
+            ], names
 
             # council_config needs no API call — exercise a real round-trip.
             res = await session.call_tool("council_config", {})

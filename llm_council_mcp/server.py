@@ -11,14 +11,31 @@ Designed to be launched by an MCP client (e.g. Claude Code) via stdio.
 from __future__ import annotations
 
 import json
+import os
+from datetime import datetime, timezone
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
 from . import config
-from .council import run_full_council
+from .council import run_council_stream, run_full_council
+from .report import render_html
 
 mcp = FastMCP("llm-council")
+
+
+def _write_html_report(result: dict[str, Any], html_path: str | None) -> str | None:
+    """Write an HTML report to html_path (or an auto-named file). Returns the path."""
+    if html_path is None:
+        return None
+    path = html_path
+    if path == "" or path.lower() == "auto":
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        path = os.path.join(os.getcwd(), f"council-report-{stamp}.html")
+    path = os.path.abspath(os.path.expanduser(path))
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(render_html(result))
+    return path
 
 
 def _format_report(result: dict[str, Any]) -> str:
@@ -64,6 +81,7 @@ async def council_deliberate(
     models: list[str] | None = None,
     chairman_model: str | None = None,
     format: str = "markdown",
+    html_path: str | None = None,
 ) -> str:
     """Run the full 3-stage LLM Council on a hard question.
 
@@ -75,11 +93,63 @@ async def council_deliberate(
         models: Optional override list of OpenRouter model IDs for the council.
         chairman_model: Optional override for the synthesizing model.
         format: "markdown" (default, human-readable report) or "json" (raw data).
+        html_path: If set, also write a self-contained HTML report to this path.
+            Use "auto" to auto-name it council-report-<timestamp>.html in the cwd.
     """
     result = await run_full_council(question, models=models, chairman_model=chairman_model)
-    if format == "json":
-        return json.dumps(result, indent=2)
-    return _format_report(result)
+    written = _write_html_report(result, html_path)
+    out = json.dumps(result, indent=2) if format == "json" else _format_report(result)
+    if written:
+        out += f"\n\n_HTML report written to: {written}_"
+    return out
+
+
+@mcp.tool()
+async def council_deliberate_streaming(
+    question: str,
+    ctx: Context,
+    models: list[str] | None = None,
+    chairman_model: str | None = None,
+    html_path: str | None = None,
+) -> str:
+    """Run the council with live per-stage progress updates.
+
+    Identical to council_deliberate but emits MCP progress + log events as each
+    stage completes (dispatch -> peer review -> chairman), so the client can show
+    a live status. Returns the final markdown report when done.
+
+    Args:
+        question: The question or decision to deliberate.
+        ctx: MCP context (injected automatically) used for progress reporting.
+        models: Optional override list of OpenRouter model IDs for the council.
+        chairman_model: Optional override for the synthesizing model.
+        html_path: If set, also write a self-contained HTML report ("auto" to auto-name).
+    """
+    stage_progress = {
+        "start": (0.05, "Council convened; dispatching question to all members"),
+        "stage1_complete": (0.40, "Stage 1 complete: individual responses collected"),
+        "stage2_complete": (0.70, "Stage 2 complete: anonymized peer review & rankings"),
+        "stage3_complete": (0.95, "Stage 3 complete: chairman synthesizing verdict"),
+        "done": (1.0, "Done"),
+    }
+    result: dict[str, Any] = {}
+    async for ev in run_council_stream(question, models=models, chairman_model=chairman_model):
+        name = ev["event"]
+        if name == "error":
+            await ctx.info(f"Council error: {ev['error']}")
+            return f"# LLM Council — ERROR\n\n{ev['error']}"
+        if name in stage_progress:
+            pct, msg = stage_progress[name]
+            await ctx.report_progress(pct, 1.0, msg)
+            await ctx.info(msg)
+        if name == "done":
+            result = ev["result"]
+
+    written = _write_html_report(result, html_path)
+    out = _format_report(result)
+    if written:
+        out += f"\n\n_HTML report written to: {written}_"
+    return out
 
 
 @mcp.tool()

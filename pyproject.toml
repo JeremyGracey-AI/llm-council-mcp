@@ -4,10 +4,28 @@ version = "0.1.0"
 description = "Multi-model LLM Council (Karpathy-style 3-stage deliberation over OpenRouter), exposed as an MCP server for Claude Code."
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Jeremy Gracey" }]
+keywords = ["mcp", "llm", "openrouter", "claude-code", "agents", "deliberation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "mcp>=1.2.0",
     "httpx>=0.27.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/JeremyGracey-AI/llm-council-mcp"
+Repository = "https://github.com/JeremyGracey-AI/llm-council-mcp"
+Issues = "https://github.com/JeremyGracey-AI/llm-council-mcp/issues"
 
 [project.scripts]
 llm-council-mcp = "llm_council_mcp.server:main"
@@ -18,3 +36,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["llm_council_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "llm_council_mcp",
+    "tests",
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+]
