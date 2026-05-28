@@ -154,6 +154,9 @@ Inspect the active roster any time with `council_config` (no API call, no cost).
 | `CHAIRMAN_MODEL` | `google/gemini-3-pro-preview` | Synthesizer. |
 | `LLM_COUNCIL_TIMEOUT` | `120` | Per-request seconds. |
 | `LLM_COUNCIL_MAX_RETRIES` | `2` | Retries on 408/429/5xx. |
+| `OPENROUTER_API_URL` | `https://openrouter.ai/api/v1/chat/completions` | Override the OpenRouter chat-completions endpoint (e.g. a proxy). |
+| `OPENROUTER_REFERER` | `https://github.com/` | `HTTP-Referer` attribution header sent to OpenRouter. |
+| `OPENROUTER_TITLE` | `llm-council-mcp` | `X-Title` attribution header sent to OpenRouter. |
 
 ## Run the server directly (debug)
 
