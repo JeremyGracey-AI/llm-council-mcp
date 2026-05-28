@@ -73,6 +73,62 @@ Restart Claude Code. Then just ask it to use the tools, e.g.:
 
 > Use the llm-council `council_deliberate` tool: should Remy v1 stay a single-agent reasoning loop or move to a multi-agent orchestrator before my Anthropic Fellowship demo?
 
+## Usage example
+
+<!-- Drop a screen recording here once you have one:
+     ![LLM Council demo](docs/demo.gif) -->
+
+A typical `council_deliberate` call returns a markdown report shaped like this:
+
+```text
+# LLM Council Verdict
+
+**Question:** Should I cache embeddings in SQLite or Redis for a single-box demo?
+
+## Final Answer (Chairman: google/gemini-3-pro-preview)
+For a single-box demo, SQLite is the better default: zero extra services to run,
+persistence for free, and ample throughput at demo scale. Reach for Redis only if
+you later need sub-millisecond reads under concurrency or cross-process sharing.
+
+## Peer Leaderboard (lower avg rank = better)
+- **anthropic/claude-sonnet-4.5** — avg rank 1.33 (ranked by 4)
+- **openai/gpt-5.1** — avg rank 1.67 (ranked by 4)
+- **google/gemini-3-pro-preview** — avg rank 3.0 (ranked by 4)
+- **x-ai/grok-4** — avg rank 4.0 (ranked by 4)
+
+## Stage 1 — Individual Responses
+### openai/gpt-5.1
+...
+## Stage 2 — Peer Reviews & Rankings
+### anthropic/claude-sonnet-4.5
+...
+FINAL RANKING:
+1. Response B
+2. Response A
+...
+```
+
+Fast go/no-go decisions use `council_jury` instead — each model returns
+`VERDICT: YES/NO` and you get a tally plus the chairman's synthesis:
+
+```text
+# Council Jury Verdict
+
+**Question:** Should we ship the v1 demo this Friday?
+
+**Tally:** 3 YES / 1 NO
+- openai/gpt-5.1: YES
+- google/gemini-3-pro-preview: YES
+- anthropic/claude-sonnet-4.5: YES
+- x-ai/grok-4: NO
+
+## Chairman Synthesis (google/gemini-3-pro-preview)
+Ship it — three of four advisors agree the core path is solid. The lone NO flags
+thin error handling on the upload route; gate the Friday release on that one fix.
+```
+
+Inspect the active roster any time with `council_config` (no API call, no cost).
+
 ## Configuration (env vars)
 
 | Var | Default | Notes |
@@ -96,6 +152,29 @@ OPENROUTER_API_KEY=sk-or-v1-... .venv/bin/llm-council-mcp
 PYTHONPATH=. .venv/bin/python tests/test_pipeline_mock.py   # mocks OpenRouter
 PYTHONPATH=. .venv/bin/python tests/test_mcp_boot.py        # boots server, lists tools
 ```
+
+## Contributing
+
+Contributions are welcome. The project is small and the test suite runs offline
+(no API key or credits needed), so the loop is fast:
+
+```bash
+git clone https://github.com/JeremyGracey-AI/llm-council-mcp.git
+cd llm-council-mcp
+python3 -m venv .venv && .venv/bin/pip install -e .
+PYTHONPATH=. .venv/bin/python tests/test_pipeline_mock.py
+PYTHONPATH=. .venv/bin/python tests/test_mcp_boot.py
+```
+
+Guidelines:
+
+- Open an issue first for anything beyond a small fix, so we can align on approach.
+- Branch off `main`, keep PRs focused, and make sure both tests pass — CI runs them on Python 3.10–3.12.
+- Add or update a test for any behavior change. Keep tests **offline** by mocking OpenRouter (see `tests/test_pipeline_mock.py`); never commit real API keys or hit the live API in tests.
+- Match the existing style: type hints, docstrings on public functions, and structured `{ok, error}` results rather than raised exceptions in the request path.
+- New tools belong in `server.py`; core pipeline logic in `council.py`; provider/transport details in `openrouter.py`.
+
+By contributing you agree your contributions are licensed under the MIT License.
 
 ## Credits
 
