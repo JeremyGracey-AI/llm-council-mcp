@@ -1,6 +1,7 @@
 """Boot the MCP server over stdio and confirm it lists the expected tools."""
 
 import asyncio
+import sys
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -8,7 +9,7 @@ from mcp.client.stdio import stdio_client
 
 async def main():
     params = StdioServerParameters(
-        command=".venv/bin/python",
+        command=sys.executable,
         args=["-m", "llm_council_mcp.server"],
         env={"OPENROUTER_API_KEY": "test-key-not-used", "PYTHONPATH": "."},
     )

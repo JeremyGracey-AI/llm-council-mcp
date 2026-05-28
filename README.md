@@ -1,5 +1,8 @@
 # LLM Council MCP
 
+[![CI](https://github.com/JeremyGracey-AI/llm-council-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/JeremyGracey-AI/llm-council-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A hybrid of [Andrej Karpathy's LLM Council](https://github.com/karpathy/llm-council)
 and the Model Context Protocol: real **multi-model** deliberation over OpenRouter,
 exposed as an **MCP server** you call from inside Claude Code (or any MCP client).
