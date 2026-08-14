@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/JeremyGracey-AI/llm-council-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/JeremyGracey-AI/llm-council-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![MCP Badge](https://lobehub.com/badge/mcp/jeremygracey-ai-llm-council-mcp)](https://lobehub.com/mcp/jeremygracey-ai-llm-council-mcp)
 
 A hybrid of [Andrej Karpathy's LLM Council](https://github.com/karpathy/llm-council)
 and the Model Context Protocol: real **multi-model** deliberation over OpenRouter,
