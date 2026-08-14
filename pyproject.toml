@@ -1,6 +1,6 @@
 [project]
-name = "llm-council-mcp"
-version = "0.1.0"
+name = "mcp-llm-council"
+version = "0.2.0"
 description = "Multi-model LLM Council (Karpathy-style 3-stage deliberation over OpenRouter), exposed as an MCP server for Claude Code."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,7 +18,11 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "mcp>=1.2.0",
+    # Capped below 2.0 on purpose: mcp 2.0.0 removed `mcp.server.fastmcp`,
+    # which this server is built on, so an uncapped install fails at import
+    # with ModuleNotFoundError. Lifting the cap requires migrating to the
+    # new mcp.server.mcpserver API first.
+    "mcp>=1.2.0,<2",
     "httpx>=0.27.0",
 ]
 
@@ -28,6 +32,9 @@ Repository = "https://github.com/JeremyGracey-AI/llm-council-mcp"
 Issues = "https://github.com/JeremyGracey-AI/llm-council-mcp/issues"
 
 [project.scripts]
+# Matches the distribution name so `uvx mcp-llm-council` works with no --from.
+mcp-llm-council = "llm_council_mcp.server:main"
+# Retained so existing ~/.claude.json entries keep working after the rename.
 llm-council-mcp = "llm_council_mcp.server:main"
 
 [build-system]

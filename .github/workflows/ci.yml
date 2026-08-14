@@ -33,3 +33,57 @@ jobs:
         run: PYTHONPATH=. python tests/test_mcp_boot.py
         env:
           OPENROUTER_API_KEY: test-key-not-used
+
+      - name: Run MCP surface test (tools + prompts + resources, no API key)
+        run: PYTHONPATH=. python tests/test_mcp_surface.py
+
+  # Installs the built wheel into a clean environment the way a registry
+  # scanner or an end user would, with nothing from the source tree on the
+  # path. This is what would have caught the mcp 2.0.0 break in v0.1.0.
+  install-from-wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+
+      - name: Install wheel into a clean venv
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/*.whl
+
+      - name: Console script boots and advertises its full surface
+        run: |
+          cd /tmp
+          /tmp/clean/bin/python - <<'PY'
+          import asyncio
+          from mcp import ClientSession, StdioServerParameters
+          from mcp.client.stdio import stdio_client
+
+          async def main():
+              params = StdioServerParameters(
+                  command="/tmp/clean/bin/mcp-llm-council", args=[], env={}
+              )
+              async with stdio_client(params) as (r, w):
+                  async with ClientSession(r, w) as s:
+                      await s.initialize()
+                      tools = sorted(t.name for t in (await s.list_tools()).tools)
+                      prompts = sorted(p.name for p in (await s.list_prompts()).prompts)
+                      res = sorted(str(x.uri) for x in (await s.list_resources()).resources)
+              assert len(tools) == 4, tools
+              assert len(prompts) == 3, prompts
+              assert len(res) == 2, res
+              print("clean install OK:", tools, prompts, res)
+
+          asyncio.run(main())
+          PY
+
+      - name: Legacy console script alias still resolves
+        run: /tmp/clean/bin/llm-council-mcp --help || test -x /tmp/clean/bin/llm-council-mcp

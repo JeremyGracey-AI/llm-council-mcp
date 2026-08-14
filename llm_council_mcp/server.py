@@ -1,9 +1,19 @@
 """MCP server exposing the LLM Council as callable tools (stdio transport).
 
 Tools:
-  - council_deliberate: run the full 3-stage multi-model council on a question.
-  - council_jury:       run a fast go/no-go binary verdict across the council.
-  - council_config:     inspect the current roster, chairman, and key status.
+  - council_deliberate:           run the full 3-stage council on a question.
+  - council_deliberate_streaming: same, with live per-stage progress events.
+  - council_jury:                 run a fast go/no-go binary verdict.
+  - council_config:               inspect the roster, chairman, and key status.
+
+Resources:
+  - council://roster:      the active roster and request settings, as JSON.
+  - council://methodology: how the 3-stage deliberation protocol works.
+
+Prompts:
+  - deliberate:      frame a hard decision for full council deliberation.
+  - jury:            frame a go/no-go decision for a fast binary vote.
+  - compare_options: ask the council to compare named options against criteria.
 
 Designed to be launched by an MCP client (e.g. Claude Code) via stdio.
 """
@@ -212,6 +222,116 @@ def council_config() -> str:
             "max_retries": config.MAX_RETRIES,
         },
         indent=2,
+    )
+
+
+# --------------------------------------------------------------------------
+# Resources — read-only context the client can attach to a conversation.
+# --------------------------------------------------------------------------
+
+
+@mcp.resource("council://roster")
+def roster_resource() -> str:
+    """The active council roster, chairman, and request settings, as JSON."""
+    return json.dumps(
+        {
+            "council_models": config.COUNCIL_MODELS,
+            "chairman_model": config.CHAIRMAN_MODEL,
+            "openrouter_api_key_set": bool(config.OPENROUTER_API_KEY),
+            "request_timeout_s": config.REQUEST_TIMEOUT,
+            "max_retries": config.MAX_RETRIES,
+            "council_size": len(config.COUNCIL_MODELS),
+        },
+        indent=2,
+    )
+
+
+@mcp.resource("council://methodology")
+def methodology_resource() -> str:
+    """How the council reaches a verdict — the 3-stage deliberation protocol."""
+    return (
+        "# LLM Council methodology\n\n"
+        "## Stage 1 — First opinions\n"
+        "Every council model answers the question independently and in parallel. "
+        "No model sees another model's answer at this stage, so the responses are "
+        "uncorrelated.\n\n"
+        "## Stage 2 — Anonymized peer review\n"
+        "Each model is shown the other responses relabeled as 'Response A/B/C...'. "
+        "Identities are stripped so no model can favor its own family, and each "
+        "model ranks the anonymized set.\n\n"
+        "## Stage 3 — Chairman synthesis\n"
+        "A designated chairman model reads every response plus every ranking and "
+        "writes the final answer.\n\n"
+        "## Peer leaderboard\n"
+        "Average rank per model is computed from the Stage 2 rankings. Lower is "
+        "better. It measures how the council rated each member on this question "
+        "only — it is not a general capability benchmark.\n\n"
+        "## Cost\n"
+        "One run costs roughly N+1 times a single-model query, where N is the "
+        "council size.\n"
+    )
+
+
+# --------------------------------------------------------------------------
+# Prompts — reusable templates the user can invoke from the client.
+# --------------------------------------------------------------------------
+
+
+@mcp.prompt()
+def deliberate(question: str, context: str = "") -> str:
+    """Frame a hard decision for full 3-stage council deliberation.
+
+    Args:
+        question: The decision or question to put to the council.
+        context: Optional background — constraints, prior attempts, deadlines.
+    """
+    parts = [
+        "Put the following question to the LLM Council using the "
+        "`council_deliberate` tool. Report the chairman's verdict first, then "
+        "note any point where council members meaningfully disagreed.",
+        f"\nQuestion: {question}",
+    ]
+    if context.strip():
+        parts.append(f"\nContext to include: {context}")
+    return "\n".join(parts)
+
+
+@mcp.prompt()
+def jury(question: str, stakes: str = "") -> str:
+    """Frame a go/no-go decision for a fast binary council vote.
+
+    Args:
+        question: A decision phrased so YES/NO is meaningful.
+        stakes: Optional note on what a wrong call costs.
+    """
+    parts = [
+        "Put the following go/no-go decision to the LLM Council using the "
+        "`council_jury` tool. Lead with the tally, then the chairman's reasoning. "
+        "If the vote is not unanimous, say explicitly what the dissenters "
+        "were worried about.",
+        f"\nDecision: {question}",
+    ]
+    if stakes.strip():
+        parts.append(f"\nStakes: {stakes}")
+    return "\n".join(parts)
+
+
+@mcp.prompt()
+def compare_options(options: str, criteria: str = "") -> str:
+    """Ask the council to compare several named options against criteria.
+
+    Args:
+        options: The options to compare, e.g. "Postgres, DynamoDB, SQLite".
+        criteria: Optional criteria that matter, e.g. "write throughput, ops burden".
+    """
+    crit = criteria.strip() or "correctness, operational burden, and cost"
+    return (
+        "Use the `council_deliberate` tool to compare these options and "
+        "recommend one.\n\n"
+        f"Options: {options}\n"
+        f"Judge them on: {crit}\n\n"
+        "In your summary, state the recommendation, the single strongest "
+        "argument against it, and what would change the answer."
     )
 
 

@@ -41,23 +41,58 @@ timestamped `council-report-<ts>.html` in the working directory.
 - Python ≥ 3.10
 - An [OpenRouter](https://openrouter.ai/) API key with credits (each council run hits N models + 1 chairman, so ≈ N+1× the tokens of a single query).
 
+## Prompts
+
+Reusable templates your client can invoke directly (`/mcp__llm-council__<name>` in Claude Code).
+
+| Prompt | Arguments | What it does |
+|--------|-----------|--------------|
+| `deliberate` | `question`, `context` *(optional)* | Frames a hard decision for full 3-stage deliberation and asks for the disagreements, not just the verdict. |
+| `jury` | `question`, `stakes` *(optional)* | Frames a go/no-go so the tally leads and dissenters are named. |
+| `compare_options` | `options`, `criteria` *(optional)* | Compares named options and forces a recommendation plus its strongest counterargument. |
+
+## Resources
+
+Read-only context you can attach to a conversation.
+
+| Resource | Contents |
+|----------|----------|
+| `council://roster` | Active roster, chairman, timeout/retry settings, and whether the API key is set (JSON). |
+| `council://methodology` | How the 3-stage protocol works and how to read the peer leaderboard. |
+
 ## Install
 
-From PyPI (once published):
+### Recommended — no clone, no venv
+
+Requires [uv](https://docs.astral.sh/uv/). `uvx` fetches and runs the server in a
+throwaway environment:
 
 ```bash
-pip install llm-council-mcp
+uvx mcp-llm-council
 ```
 
-Or from source:
+### From PyPI
 
 ```bash
+pip install mcp-llm-council
+```
+
+### From source
+
+```bash
+git clone https://github.com/JeremyGracey-AI/llm-council-mcp
 cd llm-council-mcp
 python3 -m venv .venv
 .venv/bin/pip install -e .
 ```
 
-Either way you get the `llm-council-mcp` console script (entry point `llm_council_mcp.server:main`).
+All three give you the `mcp-llm-council` console script (entry point
+`llm_council_mcp.server:main`). The old `llm-council-mcp` script name still
+works, so existing config keeps running.
+
+> **Note on the package name.** The PyPI name `llm-council-mcp` belongs to an
+> unrelated project, so this one publishes as **`mcp-llm-council`**. The import
+> path is still `llm_council_mcp` and the GitHub repo is unchanged.
 
 ## Register with Claude Code
 
@@ -66,7 +101,7 @@ Claude Code reads MCP servers from `~/.claude.json` (or a project `.mcp.json`). 
 ```bash
 claude mcp add llm-council \
   --env OPENROUTER_API_KEY=sk-or-v1-... \
-  -- /ABSOLUTE/PATH/llm-council-mcp/.venv/bin/llm-council-mcp
+  -- uvx mcp-llm-council
 ```
 
 Or add it manually to `~/.claude.json`:
@@ -75,12 +110,26 @@ Or add it manually to `~/.claude.json`:
 {
   "mcpServers": {
     "llm-council": {
-      "command": "/ABSOLUTE/PATH/llm-council-mcp/.venv/bin/llm-council-mcp",
+      "command": "uvx",
+      "args": ["mcp-llm-council"],
       "env": {
         "OPENROUTER_API_KEY": "sk-or-v1-...",
         "COUNCIL_MODELS": "openai/gpt-5.1,google/gemini-3-pro-preview,anthropic/claude-sonnet-4.5,x-ai/grok-4",
         "CHAIRMAN_MODEL": "google/gemini-3-pro-preview"
       }
+    }
+  }
+}
+```
+
+Running from a source checkout instead? Point `command` at the script in your venv:
+
+```json
+{
+  "mcpServers": {
+    "llm-council": {
+      "command": "/ABSOLUTE/PATH/llm-council-mcp/.venv/bin/mcp-llm-council",
+      "env": { "OPENROUTER_API_KEY": "sk-or-v1-..." }
     }
   }
 }
@@ -162,7 +211,7 @@ Inspect the active roster any time with `council_config` (no API call, no cost).
 ## Run the server directly (debug)
 
 ```bash
-OPENROUTER_API_KEY=sk-or-v1-... .venv/bin/llm-council-mcp
+OPENROUTER_API_KEY=sk-or-v1-... .venv/bin/mcp-llm-council
 # speaks MCP over stdio — Ctrl-C to exit
 ```
 
@@ -171,18 +220,20 @@ OPENROUTER_API_KEY=sk-or-v1-... .venv/bin/llm-council-mcp
 ```bash
 PYTHONPATH=. .venv/bin/python tests/test_pipeline_mock.py   # pipeline, streaming & HTML, OpenRouter mocked
 PYTHONPATH=. .venv/bin/python tests/test_mcp_boot.py        # boots server, lists all 4 tools
+PYTHONPATH=. .venv/bin/python tests/test_mcp_surface.py     # asserts every tool, prompt & resource
 ```
 
 ## Releasing / publishing
 
 Pushing a `v*` tag triggers `.github/workflows/publish.yml`, which builds the
 sdist + wheel and publishes to PyPI via Trusted Publishing (OIDC — no stored
-tokens). One-time PyPI setup: add a trusted publisher for repo
-`JeremyGracey-AI/llm-council-mcp`, workflow `publish.yml`, environment `pypi`.
+tokens). One-time PyPI setup: on the **`mcp-llm-council`** PyPI project, add a
+trusted publisher for repo `JeremyGracey-AI/llm-council-mcp`, workflow
+`publish.yml`, environment `pypi`.
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 ## Contributing
