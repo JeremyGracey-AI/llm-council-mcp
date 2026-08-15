@@ -1,0 +1,215 @@
+{
+  "author": "JeremyGracey-AI",
+  "authorUrl": "https://github.com/JeremyGracey-AI",
+  "category": "developer",
+  "description": "Multi-model LLM Council (Karpathy-style 3-stage deliberation over OpenRouter), exposed as an MCP server for Claude Code.",
+  "homepage": "https://github.com/JeremyGracey-AI/llm-council-mcp",
+  "identifier": "jeremygracey-ai-llm-council-mcp",
+  "name": "LLM Council MCP",
+  "prompts": [
+    {
+      "name": "deliberate",
+      "description": "Frame a hard decision for full 3-stage council deliberation.\n\nArgs:\n    question: The decision or question to put to the council.\n    context: Optional background \u2014 constraints, prior attempts, deadlines.\n"
+    },
+    {
+      "name": "jury",
+      "description": "Frame a go/no-go decision for a fast binary council vote.\n\nArgs:\n    question: A decision phrased so YES/NO is meaningful.\n    stakes: Optional note on what a wrong call costs.\n"
+    },
+    {
+      "name": "compare_options",
+      "description": "Ask the council to compare several named options against criteria.\n\nArgs:\n    options: The options to compare, e.g. \"Postgres, DynamoDB, SQLite\".\n    criteria: Optional criteria that matter, e.g. \"write throughput, ops burden\".\n"
+    }
+  ],
+  "resources": [
+    {
+      "name": "roster_resource",
+      "description": "The active council roster, chairman, and request settings, as JSON.",
+      "uri": "council://roster"
+    },
+    {
+      "name": "methodology_resource",
+      "description": "How the council reaches a verdict \u2014 the 3-stage deliberation protocol.",
+      "uri": "council://methodology"
+    }
+  ],
+  "tags": [
+    "llm-council",
+    "multi-model",
+    "deliberation",
+    "openrouter",
+    "consensus"
+  ],
+  "tools": [
+    {
+      "name": "council_deliberate",
+      "description": "Run the full 3-stage LLM Council on a hard question.\n\nMultiple frontier models answer independently, peer-review each other's\nanonymized responses, and a chairman synthesizes a final answer.\n\nArgs:\n    question: The question or decision to deliberate.\n    models: Optional override list of OpenRouter model IDs for the council.\n    chairman_model: Optional override for the synthesizing model.\n    format: \"markdown\" (default, human-readable report) or \"json\" (raw data).\n    html_path: If set, also write a self-contained HTML report to this path.\n        Use \"auto\" to auto-name it council-report-<timestamp>.html in the cwd.\n",
+      "inputSchema": {
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "models": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Models"
+          },
+          "chairman_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Chairman Model"
+          },
+          "format": {
+            "default": "markdown",
+            "title": "Format",
+            "type": "string"
+          },
+          "html_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Html Path"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "council_deliberateArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "council_deliberate_streaming",
+      "description": "Run the council with live per-stage progress updates.\n\nIdentical to council_deliberate but emits MCP progress + log events as each\nstage completes (dispatch -> peer review -> chairman), so the client can show\na live status. Returns the final markdown report when done.\n\nArgs:\n    question: The question or decision to deliberate.\n    ctx: MCP context (injected automatically) used for progress reporting.\n    models: Optional override list of OpenRouter model IDs for the council.\n    chairman_model: Optional override for the synthesizing model.\n    html_path: If set, also write a self-contained HTML report (\"auto\" to auto-name).\n",
+      "inputSchema": {
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "models": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Models"
+          },
+          "chairman_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Chairman Model"
+          },
+          "html_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Html Path"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "council_deliberate_streamingArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "council_jury",
+      "description": "Run a fast go/no-go binary verdict across the council.\n\nReframes the question to demand a clear YES or NO from each model, then the\nchairman returns a single verdict with the vote tally and the deciding reason.\n\nArgs:\n    question: A decision phrased so YES/NO is meaningful (e.g. \"Should we ship X now?\").\n    models: Optional override list of OpenRouter model IDs.\n    chairman_model: Optional override for the synthesizing model.\n",
+      "inputSchema": {
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "models": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Models"
+          },
+          "chairman_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Chairman Model"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "council_juryArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "council_config",
+      "description": "Show the current council roster, chairman model, and API-key status.",
+      "inputSchema": {
+        "properties": {},
+        "title": "council_configArguments",
+        "type": "object"
+      }
+    }
+  ],
+  "version": "0.2.0"
+}
